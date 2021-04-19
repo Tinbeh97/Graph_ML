@@ -12,7 +12,7 @@ from evaluation import EER_calculation
 #from keras.utils.vis_utils import plot_model
 
 diffpool = False 
-sagepool = True
+sagepool = False
 globalpool = False
 mypool = False 
 Task = False; ntask = 6
@@ -25,9 +25,9 @@ class GCNModel(tf.keras.Model):
         self.input_dim = num_features
         self.features_nonzero = features_nonzero
         self.n_samples = num_nodes
-        self.hd1 = 32#32
-        self.hd2 = 32#32
-        self.hd3 = 8#8
+        self.hd1 = 
+        self.hd2 = 
+        self.hd3 = 
         self.subject_num = subject_num if(not(Task)) else ntask
         self.h1 = GraphConvolution(input_dim = self.input_dim, 
                                    output_dim = self.hd1, num = 1,
@@ -102,6 +102,7 @@ lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=.4e-2,
                 decay_steps=10000,
                 decay_rate=0.9)
+#Model Optimizer
 class Optimizer(object):
     def __init__(self, subject_num):
         self.cce = tf.keras.losses.CategoricalCrossentropy()
@@ -114,8 +115,8 @@ class Optimizer(object):
             y_true = tf.keras.utils.to_categorical(y-1, num_classes=self.subject_num)
             #loss = self.cce(y_true, y_pred)
             loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_pred,labels=y_true))
-            #if(diffpool):
-            #    loss += sum(model.losses)
+            if(diffpool):
+                loss += sum(model.losses)
         gradients = tape.gradient(loss, model.trainable_variables)
         opt_op = self.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return loss
@@ -125,7 +126,7 @@ if(dataset7):
     Binary=False
 else:
     Binary=True
-Part_channel = False
+Part_channel = False #Consider part of the channels
 
 def Adj_matrix(train_x, test_x):   
     if(Binary):
@@ -135,8 +136,6 @@ def Adj_matrix(train_x, test_x):
     else:
         adj_train = deepcopy(train_x) 
         adj_test = deepcopy(test_x)
-        #adj_train = deepcopy(Atr2) 
-        #adj_test = deepcopy(Ate2)
     if(Part_channel):
         index = creating_label(ztr,y_train,subject_num,method='mean_sort') #dataset2_indices(signal_channel)
         adj_train = adj_train[:,:,index]
@@ -156,7 +155,7 @@ else:
     features_init_test = deepcopy(zte)
 
 verbose = True
-nb_run = 1 #4
+nb_run = 5
 accuracy = np.zeros((nb_run,1))
 Computational_time = np.zeros((nb_run,1))
 roc_auc = np.zeros((nb_run,1))
@@ -167,14 +166,12 @@ full_time = np.zeros((nb_run,1))
 for i in range(nb_run):
     t_start = time.time()
     subject_num = len(Labels)    
-    """
     if(not(dataset7)):
         train_x, test_x, y_train, y_test = preprocess_data(x_original_all[:,0],Labels,i,Fs,dataset2=False,
                                                            filt=False,ICA=True,A_Matrix='cov')
     else:
         train_x, test_x, y_train, y_test = preprocess_data(x_original[:,:,Fs*9:],Labels,i,Fs,
                                                           dataset2=False,filt=False,ICA=True,A_Matrix='plv',sec=30,sampling=False)
-    #"""
     adj_train, adj_test = Adj_matrix(train_x, test_x)
     # Preprocessing and initialization
     if verbose:
