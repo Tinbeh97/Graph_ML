@@ -32,42 +32,18 @@ EER = np.zeros((nb_run,1))
 
 for i in range(nb_run):
     t_begin = time.time()
-    """
-    indices9 = dataset2_indices(signal_channel)
-    train_x, test_x, y_train, y_test = preprocess_data(x_original_all[:,1,indices9],Labels,4,Fs,dataset2=False,
-                                                      filt=False,ICA=True,A_Matrix='cov',sec=1)
-    #"""
-    """
-    train_x, test_x, y_train, y_test = preprocess_data(x_original[:,:,Fs*9:],Labels,4,Fs,
-                                                      dataset2=False,filt=True,ICA=True,A_Matrix='cov',sec=1)
-    #"""
-    #"""
     train_x, test_x, y_train, y_test = preprocess_data(physio_data[:,:n,:],Labels,i,
                                                        Fs,dataset2=False,filt=False,
                                                        ICA=True,A_Matrix='plv',sec=2)
-    #"""
     n = train_x.shape[2]
     print('training features')
     t_start = time.time()
-    if (VAE):
-        #train_feature = deepcopy(train_VAE).reshape(len(train_VAE),-1)
-        train_feature = deepcopy(ztr).numpy().reshape(len(ztr),-1)
-    else:
-        #train_M = deepcopy(train_VAE).numpy().reshape(len(train_VAE),n,n)
-        #train_M = invlogit(train_M)
-        train_feature = matrix_feature(train_x,n,connected)
+    train_feature = matrix_feature(train_x,n,connected)
     Computational_time[i] = time.time()-t_start
     print("feature extraction time: ", Computational_time[i])
     
     print('testing features')
-    if (VAE):
-        #test_feature = deepcopy(test_VAE).reshape(len(test_VAE),-1)
-        test_feature = deepcopy(zte).numpy().reshape(len(zte),-1)
-    else:
-        #test_M = deepcopy(test_VAE).numpy().reshape(len(test_VAE),n,n)
-        #test_M = invlogit(test_M)
-        test_feature = matrix_feature(test_x,n,connected)
-    
+    test_feature = matrix_feature(test_x,n,connected)
     
     discriminator = 'Maha_dist'
     if(discriminator=='Maha_dist'):
@@ -106,35 +82,3 @@ print("final EER: {} and ROC: {}".format(np.round(np.mean(EER),4),np.round(np.me
 print("final accuracy: ", np.round(np.mean(accuracy),3),np.round(np.var(accuracy),3))
 print("final computation time: ",np.round(np.mean(Computational_time),3))
 print("final full time: ",np.round(np.mean(full_time/60),3))
-
-#wavelet transform
-DWT = False
-if(DWT):
-    import pywt
-    from skimage import util
-    x2 = x_original_all[:,1]
-    win_size = Fs
-    step = win_size//2
-    n_sample_train, _ = util.view_as_windows(x2[0,0,:], window_shape=(win_size,), step=step).shape
-    #fit size of data
-    x2 = x2[:,:,:((n_sample_train+1)*step)]
-    #win = signal.hamming(win_size)
-    win = 1
-    train_features = [x2[:,:,i : i + win_size] for i in range(0, x2.shape[2]-step, step)]
-        
-    train_features = np.asarray(train_features).reshape(n_sample_train*subject_num,n,win_size)
-
-    t = time.time()
-    for k in range(train_features.shape[0]):
-        for j in range(train_features.shape[1]):
-            py2 = pywt.wavedec(train_features[k,j],wavelet='db1',level=2)
-            py3 = pywt.wavedec(train_features[k,j],wavelet='db1',level=3)
-            u = []
-            for i in range(len(py2)):
-                u = np.append(u, py2[i], axis=0)
-            for i in range(len(py3)):
-                u = np.append(u, py3[i], axis=0)
-            u = np.array(u)
-            m = np.std(u)
-    print(time.time()-t)
-    
