@@ -24,12 +24,12 @@ class GCNModelVAE(tf.keras.Model):
         self.input_dim = num_features
         self.features_nonzero = features_nonzero
         self.n_samples = num_nodes
-        self.hidden_dim = 32 #32
-        self.hidden_dim2 = 32
+        self.hidden_dim = 
+        self.hidden_dim2 = 
         if(loss_function==1 or loss_function==3):
-            self.dimension = 1
+            self.dimension = 
         else:
-            self.dimension = 4
+            self.dimension = 
         self.hidden1 = GraphConvolution(input_dim = self.input_dim, 
                                         output_dim = self.hidden_dim, num = 1,
                                         act = lambda x: x)
@@ -188,25 +188,12 @@ for i in range(nb_run):
     t_start = time.time()
     if verbose:
         print("Creating Adjacency matrix...")
-    """
-    train_x, test_x, y_train, y_test = preprocess_data(x2[:,1],Labels,i,Fs,dataset2=False,
-                                                      filt=False,ICA=True,A_Matrix='cov',sec=1)    
-    #"""
-    """
-    train_x, test_x, y_train, y_test = preprocess_data(physio_data[:,:n,:],Labels,i,
-                                                       Fs,dataset2=False,filt=False,
-                                                       ICA=True,A_Matrix='plv',sec=1)
-    #"""
-    """
     if(channel7):
         train_x, test_x, y_train, y_test = preprocess_data(x_original[:,:,Fs*9:],Labels,i,Fs,
                                                            dataset2=False,filt=True,ICA=True,A_Matrix='cov',sec=1)
     else:
         train_x, test_x, y_train, y_test = preprocess_data(x_original_all[:,0],Labels,i,Fs,dataset2=False,
                                                        filt=False,ICA=True,A_Matrix='cov',sec=12)    
-    #train_x, test_x, y_train, y_test = deepcopy(train_x_task), deepcopy(test_x_task), deepcopy(y_train_task), deepcopy(y_test_task)
-    #"""
-    #"""
     #A_matrix = 'cov' 'plv' 'iplv' 'pli' 'AEC'
     adj_train, adj_test = Adj_matrix(train_x, test_x)
     # Preprocessing and initialization
@@ -265,26 +252,12 @@ for i in range(nb_run):
     stop_val = 0
     stop_num = 10
     FLAGS_shuffle = False
-    if(loss_function == 1):
-        if(Binary):
-            if(Part_channel):
-                n_epochs = 15 #27
-            else:
-                #29 
-                n_epochs = 171#240 for 10 subjects #71 for 30 subjects #22 for all subjects #48 for 50 subject
-        else:
-            n_epochs = 25 #38 #16
-    elif(loss_function==3):
-        n_epochs = 16 #14 #43 without d1 
-    else:
-        n_epochs = 1000
-    for epoch in range(2000): #20 #400 & 500 for 8 seconds #134 for 4 second
+    for epoch in range(1000): 
         t = time.time()
         # Compute average loss
         loss = 0
         for adj, label, x in train_dataset:
             loss += opt.train_step(label,tf.cast(x,tf.float32),tf.cast(adj,tf.float32), 0.5, VAEmodel)
-        #loss = opt.train_step(adj_label,tf.cast(features,tf.float32),tf.cast(adj_norm,tf.float32), 0.5, model)
         avg_cost = loss.numpy() / (len(adj_train))
         if verbose:
             # Display epoch information
@@ -292,41 +265,7 @@ for i in range(nb_run):
                   "time=", "{:.5f}".format(round(time.time() - t,3)))
         Computational_time[i] += (time.time() - t)
         num_epoch[i] +=1
-        """
-        if(i==2 or i==3):
-            if(avg_cost<=-35): 
-                break
-        else:
-            if(avg_cost<=-9): 
-                break
-        #"""
-        #"""
-        if(avg_cost<=-10): #-15 PLV filter #-5 #-90 #-30 #9
-                break
-        #"""
-        """
-        if(i==3):
-            if(avg_cost<=-10): 
-                break
-        elif(i==1):
-            if(avg_cost<=-4):
-                break
-        elif(i==2):
-            if(avg_cost<=-6): 
-                break
-        else:
-            if(avg_cost<=-5):
-                break
-        #"""
-        """
-        if(i==4):
-            if(avg_cost<=-20): #-15 PLV filter #-5 #-90 #-30 #9
-                break
-        else:
-            if(avg_cost<=0): #-15 PLV filter #-5 #-90 #-30 #9
-                break
-        #"""
-        """
+        #When to stop the iteration
         if(prev_cost < avg_cost):
             stop_val += 1
             if (stop_val == stop_num):
@@ -334,7 +273,6 @@ for i in range(nb_run):
         else:
             stop_val = 0
             prev_cost = avg_cost
-        """
     Computational_time[i] = Computational_time[i]/num_epoch[i]
     print("computational time for each epoch: ",np.round(Computational_time[i],3))
     if(partial_subject and part_channel):
@@ -362,7 +300,7 @@ for i in range(nb_run):
         print("testing time: ", time.time()-t)
         accuracy[i] = 100 * np.sum(test_pred==(y_test)) / len(test_pred)
         print("accuracy: ", np.round(accuracy[i],3))
-#    elif(Class_method == "bayes"):
+    elif(Class_method == "bayes"):
         mnb = MultinomialNB()
         test_pred = mnb.fit(train_feature-np.min(train_feature), y_train).predict(test_feature-np.min(test_feature))
         accuracy2[i] = 100 * np.sum(test_pred==(y_test)) / len(test_pred)
