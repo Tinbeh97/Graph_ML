@@ -11,6 +11,61 @@ from clustering import A_binarize, creating_label
 from evaluation import EER_calculation
 #from keras.utils.vis_utils import plot_model
 
+import pyedflib #for importing EEG data
+import os
+
+subject_num = 109
+run_num = 14
+task_num = 6
+n = 64
+data_length = 9600
+def load_dataset(subject=None,task=2):
+    if(subject==None):
+        x = np.zeros((subject_num,run_num,n,data_length))
+        for k in range(subject_num):
+            for i in range(run_num):
+                if(i==4 and k==105):
+                    file_name = os.path.join('./datasetI/S'+'{0:03}'.format(k+1), 'S' +'{0:03}'.format(k+1)+'R'+'{0:02}'.format(i+1+4)+'.edf')
+                    f = pyedflib.EdfReader(file_name)
+                    for j in range(n):
+                        x[k,i,j, :] = f.readSignal(j)[data_length:data_length*2]
+                else:
+                    file_name = os.path.join('./datasetI/S'+'{0:03}'.format(k+1), 'S' +'{0:03}'.format(k+1)+'R'+'{0:02}'.format(i+1)+'.edf')
+                    f = pyedflib.EdfReader(file_name)
+                    #n = f.signals_in_file
+                    #time = f.getNSamples()[0]
+                    #96th subject time is 9600 instead of 9760
+                    for j in range(n):
+                        x[k,i,j, :] = f.readSignal(j)[:data_length]
+                    if(i==1):
+                        signal_channel = f.getSignalLabels()
+                    f._close()
+                    del f
+    else:
+        x = np.zeros((run_num,n,data_length))
+        for i in range(run_num):
+            file_name = os.path.join('./datasetI/S'+'{0:03}'.format(subject), 'S' +'{0:03}'.format(subject)+'R'+'{0:02}'.format(i+1)+'.edf')
+            f = pyedflib.EdfReader(file_name)
+            #n = f.signals_in_file
+            #time = f.getNSamples()[0]
+            #96th subject time is 9600 instead of 9760
+            for j in range(n):
+                x[i,j, :] = f.readSignal(j)[:data_length]
+            if(i==1):
+                signal_channel = f.getSignalLabels()
+            f._close()
+            del f
+                        
+    return x, signal_channel
+
+win_size = 160
+step = 160*0+80 #1-window*alpha%
+Fs = 160
+Ts = 1/Fs
+
+Labels = np.linspace(1,subject_num,subject_num) #data label
+x_original_all, signal_channel = load_dataset() #import data for all subject icluding all tasks
+
 diffpool = False 
 sagepool = False
 globalpool = False
