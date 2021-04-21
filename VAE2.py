@@ -6,18 +6,75 @@ import tensorflow as tf
 import time
 from copy import deepcopy
 from sklearn import svm
-from Graph_layers import GraphConvolution, GraphLinear, InnerProductDecoder
+from Graph_layers import GraphConvolution, GraphLinear, InnerProductDecoder #graph layers
 from clustering import A_binarize, creating_label
 from pre_func import dataset2_indices, preprocess_data
 from evaluation import EER_calculation
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import MultinomialNB
 
-loss_function = 3
-decoder_adj = True
-def invlogit(z):
+import pyedflib #for importing EEG data
+import os
+
+subject_num = 109
+run_num = 14
+task_num = 6
+n = 64
+data_length = 9600
+def load_dataset(subject=None,task=2):
+    if(subject==None):
+        x = np.zeros((subject_num,run_num,n,data_length))
+        for k in range(subject_num):
+            for i in range(run_num):
+                if(i==4 and k==105):
+                    file_name = os.path.join('./datasetI/S'+'{0:03}'.format(k+1), 'S' +'{0:03}'.format(k+1)+'R'+'{0:02}'.format(i+1+4)+'.edf')
+                    f = pyedflib.EdfReader(file_name)
+                    for j in range(n):
+                        x[k,i,j, :] = f.readSignal(j)[data_length:data_length*2]
+                else:
+                    file_name = os.path.join('./datasetI/S'+'{0:03}'.format(k+1), 'S' +'{0:03}'.format(k+1)+'R'+'{0:02}'.format(i+1)+'.edf')
+                    f = pyedflib.EdfReader(file_name)
+                    #n = f.signals_in_file
+                    #time = f.getNSamples()[0]
+                    #96th subject time is 9600 instead of 9760
+                    for j in range(n):
+                        x[k,i,j, :] = f.readSignal(j)[:data_length]
+                    if(i==1):
+                        signal_channel = f.getSignalLabels()
+                    f._close()
+                    del f
+    else:
+        x = np.zeros((run_num,n,data_length))
+        for i in range(run_num):
+            file_name = os.path.join('./datasetI/S'+'{0:03}'.format(subject), 'S' +'{0:03}'.format(subject)+'R'+'{0:02}'.format(i+1)+'.edf')
+            f = pyedflib.EdfReader(file_name)
+            #n = f.signals_in_file
+            #time = f.getNSamples()[0]
+            #96th subject time is 9600 instead of 9760
+            for j in range(n):
+                x[i,j, :] = f.readSignal(j)[:data_length]
+            if(i==1):
+                signal_channel = f.getSignalLabels()
+            f._close()
+            del f
+                        
+    return x, signal_channel
+
+win_size = 160
+step = 160*0+80 #1-window*alpha%
+Fs = 160
+Ts = 1/Fs
+
+Labels = np.linspace(1,subject_num,subject_num) #data label
+x_original_all, signal_channel = load_dataset() #import data for all subject icluding all tasks
+
+loss_function = 3 #3 loss function is defined
+decoder_adj = True #include new decoder model
+
+def invlogit(z): #convert decoded adjancy matrix to original space
     return 1 - 1 /(1 + np.exp(z))
     
+#Graph Variational Auto Encoder
 class GCNModelVAE(tf.keras.Model):
     def __init__(self, num_features, num_nodes, features_nonzero, **kwargs):
         super().__init__(**kwargs)
@@ -32,7 +89,7 @@ class GCNModelVAE(tf.keras.Model):
             self.dimension = 
         self.hidden1 = GraphConvolution(input_dim = self.input_dim, 
                                         output_dim = self.hidden_dim, num = 1,
-                                        act = lambda x: x)
+                                        act = lambda x: x) #Convolutional layer
         """
         self.hidden12 = GraphConvolution(input_dim = self.hidden_dim, 
                                         output_dim = self.hidden_dim, num = 4,
@@ -51,6 +108,8 @@ class GCNModelVAE(tf.keras.Model):
                 self.d1 = GraphConvolution(input_dim = self.n_samples,
                                        output_dim = self.n_samples, num = 3,
                                        act = lambda x: x)
+     
+    #encoder model
     def encoder(self, inputs, adj, rate):
         x = self.hidden1(inputs, adj, rate)
         #x = tf.keras.layers.BatchNormalization()(x)
@@ -59,10 +118,12 @@ class GCNModelVAE(tf.keras.Model):
         mean, logvar = tf.split(x, num_or_size_splits=2, axis=2)
         return mean, logvar
     
+    # reparameterization trick
     def reparameterize(self, mean, logvar):
         eps = tf.random.normal([self.n_samples, self.dimension])
         return eps * (tf.exp(logvar)) + mean
     
+    #decoder model
     def decoder(self, z, adj, rate=0., apply_sigmoid=False):
         logits = z
         logits = self.d(logits,0.)
@@ -81,8 +142,9 @@ class GCNModelVAE(tf.keras.Model):
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=1e-4,
                 decay_steps=10000,
-                decay_rate=0.9) #opt.optimizer._decayed_lr(tf.float32)
+                decay_rate=0.9) #learning rate
 
+#VAE optimizer model
 class OptimizerVAE(object):
     def __init__(self, model, num_nodes,num_features,norm):
         self.norm = norm
@@ -137,34 +199,35 @@ class OptimizerVAE(object):
         opt_op = self.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return cost
 
-channel7 = False
+channel7 = False # two dataset
 if(channel7):
     Binary = False
-    #subject_num = subject_num2
 else:
     Binary = True
 Part_channel = False; partial_subject = False; part_channel = False
 
 def Adj_matrix(train_x, test_x):   
     if(Binary):
-        percentile = 0.75 #.75 datasetII #0.9
+        #Change weighted matrix to binary matrix with threshold
+        percentile = 0.75 
         adj_train = A_binarize(A_matrix=train_x,percent=percentile,sparse=False)
         adj_test  = A_binarize(A_matrix=test_x,percent=percentile,sparse=False)
         #sparse matrix
     else:
         adj_train = deepcopy(train_x) 
         adj_test = deepcopy(test_x) 
+    #consider part of the graph
     if(Part_channel):
-        index = creating_label(ztr,y_train,subject_num,method='mean_sort') #dataset2_indices(signal_channel)
+        index = creating_label(ztr,y_train,subject_num,method='mean_sort') 
         adj_train = adj_train[:,:,index]
         adj_train = adj_train[:,index]
         adj_test = adj_test[:,:,index]
         adj_test = adj_test[:,index]
-    #scipy.sparse.issparse(adj_train[9]) #check sparsity
-    #np.linalg.matrix_rank(adj_train[9]) #check matrix rank
+    print("sparsity: ",scipy.sparse.issparse(adj_train[9])) #check sparsity
+    print("rank: ",np.linalg.matrix_rank(adj_train[9])) #check matrix rank
     return adj_train, adj_test
     
-FLAGS_features = False
+FLAGS_features = False #include predefined feature or not
 if not FLAGS_features:
     features_init_train = None
 else:
@@ -175,7 +238,7 @@ else:
     features_init_test = deepcopy(test_x)
 
 verbose = True
-nb_run = 1
+nb_run = 5 #5-fold cross validation
 accuracy = np.zeros((nb_run,1))
 accuracy2 = np.zeros((nb_run,1))
 Computational_time = np.zeros((nb_run,1))
@@ -188,6 +251,8 @@ for i in range(nb_run):
     t_start = time.time()
     if verbose:
         print("Creating Adjacency matrix...")
+        
+    #EEG Data Preprocessing
     if(channel7):
         train_x, test_x, y_train, y_test = preprocess_data(x_original[:,:,Fs*9:],Labels,i,Fs,
                                                            dataset2=False,filt=True,ICA=True,A_Matrix='cov',sec=1)
@@ -195,8 +260,8 @@ for i in range(nb_run):
         train_x, test_x, y_train, y_test = preprocess_data(x_original_all[:,0],Labels,i,Fs,dataset2=False,
                                                        filt=False,ICA=True,A_Matrix='cov',sec=12)    
     #A_matrix = 'cov' 'plv' 'iplv' 'pli' 'AEC'
-    adj_train, adj_test = Adj_matrix(train_x, test_x)
-    # Preprocessing and initialization
+    adj_train, adj_test = Adj_matrix(train_x, test_x) #Creating brain graph
+    #Initialization
     if verbose:
         print("Preprocessing and Initializing...")
     # Compute number of nodes
@@ -241,6 +306,7 @@ for i in range(nb_run):
         norm = adj_train.shape[1] * adj_train.shape[1] / float((adj_train.shape[1] * adj_train.shape[1]
                                                 - (adj_train.sum()/adj_train.shape[0])) * 2)
     rate_test = 0
+    # VAE model
     VAEmodel = GCNModelVAE(num_features, num_nodes,features_nonzero)
     # Optimizer
     opt = OptimizerVAE(model = VAEmodel, num_nodes = num_nodes, 
