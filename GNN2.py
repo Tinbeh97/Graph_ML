@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 import time
 from copy import deepcopy
-from Graph_layers import GraphConvolution, Graph_diffpool,Graph_sagepool, Graph_globalpool, Graph_clustpool
+from Graph_layers import GraphConvolution, Graph_diffpool,Graph_sagepool, Graph_globalpool, Graph_clustpool #Graph layers
 from Graph_layers import Graph_clustpool_2
 from clustering import A_binarize, creating_label
 from evaluation import EER_calculation
@@ -16,9 +16,8 @@ sagepool = False
 globalpool = False
 mypool = False 
 Task = False; ntask = 6
-def invlogit(z):
-    return 1 - 1 /(1 + np.exp(z))
-    
+
+# Graph Convolutional Network Model
 class GCNModel(tf.keras.Model):
     def __init__(self, adj,adj_norm, num_features, num_nodes, features_nonzero, subject_num, **kwargs):
         super().__init__(**kwargs)
@@ -31,7 +30,7 @@ class GCNModel(tf.keras.Model):
         self.subject_num = subject_num if(not(Task)) else ntask
         self.h1 = GraphConvolution(input_dim = self.input_dim, 
                                    output_dim = self.hd1, num = 1,
-                                   act = tf.nn.leaky_relu)
+                                   act = tf.nn.leaky_relu) #Convolutional Graph layer
         """
         self.h2 = GraphConvolution(input_dim = self.hd1,
                                    output_dim = self.hd2, num = 2,
@@ -48,14 +47,14 @@ class GCNModel(tf.keras.Model):
                                    act = tf.nn.tanh)  #leaky_relu
         #"""
         self.h4 = tf.keras.layers.Dense(self.subject_num)
-        if(diffpool):
+        if(diffpool): #diffpool pooling layer
             self.p1 = Graph_diffpool(input_dim = self.hd1,
                                      output_dim = 48, num = 4,
                                      act = lambda x: x)
-        elif(sagepool):
+        elif(sagepool): #sage pooling layer
             self.p1 = Graph_sagepool(input_dim = self.hd1, num = 4, ratio = .25,
                                      act = lambda x: x)
-        if(mypool):
+        if(mypool): #pooling layer defined by myself
             #self.p1 = Graph_clustpool_2(adj,ratio=.25)
             self.p1 = Graph_clustpool(adj,48,cluster_type='sum')
             self.adj_pool = self.p1.adj_masking(adj_norm)
@@ -121,7 +120,7 @@ class Optimizer(object):
         opt_op = self.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return loss
     
-dataset7 = True
+dataset7 = True #Two dataset
 if(dataset7):
     Binary=False
 else:
@@ -130,7 +129,8 @@ Part_channel = False #Consider part of the channels
 
 def Adj_matrix(train_x, test_x):   
     if(Binary):
-        percentile = 0.9 #0.9
+        #Convert weighted matrix to binary matrix with threshold
+        percentile = 0.9
         adj_train = A_binarize(A_matrix=train_x,percent=percentile,sparse=True)
         adj_test  = A_binarize(A_matrix=test_x,percent=percentile,sparse=True)
     else:
@@ -155,7 +155,7 @@ else:
     features_init_test = deepcopy(zte)
 
 verbose = True
-nb_run = 5
+nb_run = 5 #5-fold cross validation
 accuracy = np.zeros((nb_run,1))
 Computational_time = np.zeros((nb_run,1))
 roc_auc = np.zeros((nb_run,1))
@@ -165,7 +165,8 @@ full_time = np.zeros((nb_run,1))
 
 for i in range(nb_run):
     t_start = time.time()
-    subject_num = len(Labels)    
+    subject_num = len(Labels)  
+    # Preprocessing EEG data
     if(not(dataset7)):
         train_x, test_x, y_train, y_test = preprocess_data(x_original_all[:,0],Labels,i,Fs,dataset2=False,
                                                            filt=False,ICA=True,A_Matrix='cov')
@@ -173,6 +174,7 @@ for i in range(nb_run):
         train_x, test_x, y_train, y_test = preprocess_data(x_original[:,:,Fs*9:],Labels,i,Fs,
                                                           dataset2=False,filt=False,ICA=True,A_Matrix='plv',sec=30,sampling=False)
     adj_train, adj_test = Adj_matrix(train_x, test_x)
+    
     # Preprocessing and initialization
     if verbose:
         print("Preprocessing and Initializing...")
@@ -205,7 +207,6 @@ for i in range(nb_run):
     else:
         features_test = deepcopy(features_init_test)
         
-    
     rate_test = 0
     #model
     GCmodel = GCNModel(adj_norm,adj_norm,num_features,num_nodes,features_nonzero,subject_num)
@@ -250,6 +251,7 @@ for i in range(nb_run):
             print("Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(avg_cost),
                   "time=", "{:.5f}".format(time.time() - t))
         nb_epochs += 1
+        #Stopping condition
         if(prev_cost <= avg_cost):
             stop_val += 1
             if (stop_val == stop_num):
@@ -257,6 +259,7 @@ for i in range(nb_run):
         else:
             stop_val = 0
             prev_cost = avg_cost
+            
     if(mypool):
         pred = GCmodel(tf.cast(features_test,tf.float32), tf.cast(adj_norm_test,tf.float32), 
                        0.0,GCmodel.p1.adj_masking(adj_norm_test)).numpy()
