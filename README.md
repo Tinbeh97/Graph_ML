@@ -18,4 +18,4 @@ The packages that are needed: tensorflow, os, sklearn, numpy, time, and networkx
 
 ### Clone this repository
 
-git clone git@
+git clone git@github.com/Tinbeh97/Graph_ML.git
