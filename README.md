@@ -25,4 +25,4 @@ git clone git@github.com:Tinbeh97/Graph_ML.git
 
 If you find this repository useful, please consider citing following paper:
 
-Behrouzi, Tina, and Dimitrios Hatzinakos. "Graph Variational Auto-Encoder for Deriving EEG-based Graph Embedding." Pattern Recognition (2021): 108202.
+Tina Behrouzi and Dimitrios Hatzinakos. "Graph Variational Auto-Encoder for Deriving EEG-based Graph Embedding." Pattern Recognition (2021): 108202.
