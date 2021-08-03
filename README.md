@@ -1,6 +1,6 @@
 # Graph-based Machine Learning for EEG data
 
-The models presented in this represetory are mainly applied for biometric application. 
+The models presented in this represetory are mainly applied for biometric application. For more information on this work please read [Graph Variational Auto-Encoder for Deriving EEG-based Graph Embedding](https://www.sciencedirect.com/science/article/pii/S0031320321003848?dgcid=author).
 
 ## Previous work
 
@@ -21,3 +21,8 @@ The packages that are needed: tensorflow, os, sklearn, numpy, time, and networkx
 ```
 git clone git@github.com:Tinbeh97/Graph_ML.git
 ```
+## Citation
+
+If you find this repository useful, please consider citing following paper:
+
+Behrouzi, Tina, and Dimitrios Hatzinakos. "Graph Variational Auto-Encoder for Deriving EEG-based Graph Embedding." Pattern Recognition (2021): 108202.
