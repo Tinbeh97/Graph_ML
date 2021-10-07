@@ -23,6 +23,8 @@ git clone git@github.com:Tinbeh97/Graph_ML.git
 ```
 ## Citation
 
-If you find this repository useful, please consider citing following paper:
+If you find this repository useful, please consider citing the following papers:
 
 [Tina Behrouzi and Dimitrios Hatzinakos. "Graph Variational Auto-Encoder for Deriving EEG-based Graph Embedding." Pattern Recognition (2021): 108202.](https://www.sciencedirect.com/science/article/pii/S0031320321003848?dgcid=author)
+
+[Understanding Power of Graph Convolutional Neural Network on Discriminating Human EEG Signal](https://drive.google.com/file/d/1erFzrMZ_Lrjznx3LkeNea7GiM6XV-lnJ/view)
