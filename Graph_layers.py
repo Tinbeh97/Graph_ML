@@ -138,3 +138,86 @@ class InnerProductDecoder(tf.keras.layers.Layer):
         """
         outputs = self.act(x)
         return outputs
+
+class Graph_clustpool_2(tf.keras.layers.Layer):
+    """ Graph clustering pooling layer """
+    def __init__(self, adj, ratio, act = lambda x: x, **kwargs):
+        super().__init__(**kwargs)
+        self.n = adj.shape[1]
+        self.act = act
+        self.cluster_labels = graph_clustering(adj,'kmeans',2,ratio=ratio).reshape(1,-1)
+        self.n_cluster = np.sum(self.cluster_labels)
+    def adj_masking(self,adj):
+        adj = tf.cast(adj,Type)
+        mask = tf.repeat(self.cluster_labels,len(adj),axis=0)
+        adj = tf.boolean_mask(adj,mask,axis=0)
+        adj = tf.reshape(adj,[-1,self.n_cluster,self.n])
+        adj = tf.transpose(adj, perm=[0, 2, 1])
+        adj = tf.boolean_mask(adj,mask,axis=0)
+        adj = tf.reshape(adj,[-1,self.n_cluster,self.n_cluster])
+        return adj
+    def call(self, inputs, adj, normalize=False):
+        mask = tf.repeat(self.cluster_labels,len(adj),axis=0)
+        x = tf.boolean_mask(inputs,mask)
+        x = tf.reshape(x,[-1,self.n_cluster,x.shape[1]])
+        return x, adj
+
+class Graph_clustpool(tf.keras.layers.Layer):
+    """ Graph clustering pooling layer """
+    def __init__(self, adj, n_cluster, cluster_type = 'sum', num_sample=1, **kwargs):
+        super().__init__(**kwargs)
+        self.n_cluster = n_cluster
+        self.cluster_type = cluster_type
+        self.adj = adj
+        self.clustering_method = 'kmeans' #'kmeans' 'Graclus'
+        if(num_sample>1):
+            Cluster = np.zeros((num_sample,self.adj.shape[1]))
+            for i in range(num_sample):
+                Cluster[i] = graph_clustering(self.adj,self.clustering_method,self.n_cluster).astype(int)
+            for i in range(self.adj.shape[1]):
+                Cluster[0,i] = np.bincount(Cluster[:,i].astype(int)).argmax()
+            self.cluster_labels = Cluster[0]
+        else:
+            self.cluster_labels = graph_clustering(self.adj,self.clustering_method,self.n_cluster,Mean=False)
+        self.n_cluster = len(Counter(self.cluster_labels).keys())
+        mask = np.zeros((self.adj.shape[1],self.n_cluster))
+        for i in range(self.n_cluster):
+            mask[:,i] = np.equal(self.cluster_labels,i)
+        self.mask = tf.cast(mask,dtype=Type)
+    def adj_masking(self,adj):
+        if(self.cluster_type=='sum'):
+            adj = tf.einsum('ijk,kn->ijn',adj,self.mask)
+            adj = tf.einsum('ijk,jn->ink',adj,self.mask)
+        else:
+            all_adj = tf.einsum('nij,ik->nikj',adj,self.mask)
+            if(self.cluster_type=='max'):
+                all_adj = tf.math.reduce_max(all_adj,axis=1)
+            elif(self.cluster_type=='mean'):
+                all_adj = tf.math.reduce_mean(all_adj,axis=1) 
+            all_adj = tf.einsum('nij,jk->nijk',all_adj,self.mask)
+            if(self.cluster_type=='max'):
+                adj = tf.math.reduce_max(all_adj,axis=2)
+            elif(self.cluster_type=='mean'):
+                adj = tf.math.reduce_mean(all_adj,axis=2) 
+        return adj
+    #pytorch masking
+    def masking(self, inputs, adj, labels):
+        import torch
+        from torch_scatter import scatter
+        labels = torch.tensor(labels).type(torch.LongTensor)
+        x = scatter(torch.tensor(inputs),labels,dim=1, reduce="mean")
+        adj = scatter(torch.tensor(adj),labels,dim=-1, reduce="mean")
+        adj = scatter(adj,labels,dim=1, reduce="mean")
+        return tf.cast(x.numpy(),tf.float32), tf.cast(adj.numpy(),tf.float32)
+    #@tf.function
+    def call(self, inputs, adj, normalize=False):
+        #x, adj = self.masking(inputs.numpy(),adj.numpy(),self.cluster_labels)
+        if(self.cluster_type=='sum'):
+            x = tf.einsum('ijk,jn->ink',inputs,self.mask)
+        else:
+            all_x = tf.einsum('nij,ik->nikj',inputs,self.mask)
+            if(self.cluster_type=='max'):
+                x = tf.math.reduce_max(all_x,axis=1)
+            elif(self.cluster_type=='mean'):
+                x = tf.math.reduce_mean(all_x,axis=1)
+        return x, adj
